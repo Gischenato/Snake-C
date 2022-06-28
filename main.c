@@ -27,13 +27,20 @@
 typedef struct nodo {
      short x;
      short y;
-     struct nodo *prox;
 }Nodo;
 
-typedef struct fila{
-     Nodo *head, *tail;
+typedef struct fila {
+     Nodo fila[100];
+     int inicio, fim;
+     int qnt, tam; 
 }Fila;
 
+Nodo newNodo(int x, int y){
+     Nodo p;
+     p.x = x;
+     p.y = y;
+     return p;
+}
 
 short frutaX = 8;
 short frutaY = 12;
@@ -65,57 +72,68 @@ void desenhaBorda(){
      }
 }
 
-Nodo* newNodo(int x, int y){
-     Nodo * p = malloc(sizeof(Nodo));
-     p->x = x;
-     p->y = y;
-     p->prox = NULL;
-     return p;
-}
+
 
 void insert(Fila *f, int x, int y){
-     Nodo* n = newNodo(x, y);
-
-     if(f->head == NULL){
-          f->head = f->tail = n;
+     if(f->qnt == f->tam){
+          // printf("FILA CHEIA\n");
           return;
      }
-     
-     f->tail->prox = n;
-     f->tail = n;
-}
-
-int insertTest(Fila *f, int x, int y){
-     insert(f, x, y);
-     Nodo* novo = f->tail;
-     Nodo* inicio = f->head;
-     while(inicio != novo){
-          if(inicio->x == novo->x && inicio->y == novo->y)
-               return 0;
-          inicio = inicio->prox;
-     }
-     if(x == frutaX && y == frutaY) return 2;
-     return 1;
+     f->fim = (f->fim + 1) % f->tam;
+     Nodo n = newNodo(x, y);
+     f->fila[f->fim] = n;
+     f->qnt += 1;
 }
 
 void removeNodo(Fila *f){
-     if(f->head == NULL) return;
-     Nodo* r = f->head->prox;
-     free(f->head);
-     f->head = r;
-     if(r == NULL) f->tail = NULL;
+     if(f->qnt == 0) return;
+     f->inicio = (f->inicio + 1) % f->tam;
+     f->qnt -= 1;
+}
+
+int insertTest(Fila *f, int x, int y){
+
+     if(f->fim >= f->inicio){
+          for(int i = f->inicio; i<=f->fim; i++){
+               Nodo n = f->fila[i];
+               if(n.x == x && n.y == y)
+                    return 1;
+          }
+     }
+     else{
+          for(int i = f->inicio; i<f->tam; i++){
+               Nodo n = f->fila[i];
+               if(n.x == x && n.y == y)
+                    return 1;
+          }
+          for(int i = 0; i<=f->fim; i++){
+               Nodo n = f->fila[i];
+               if(n.x == x && n.y == y)
+                    return 1;
+          }
+     }
+     insert(f, x, y);
+     if(x == frutaX && y == frutaY) return 2;
+     return 0;
 }
 
 void printa(Fila *f){
-     Nodo* p = f->head;
-
-     while(p != NULL){
-          // printf("(%d, %d),", p->x, p->y);
-          start(p->x, p->y);
-          p = p->prox;
+     if(f->fim >= f->inicio){
+          for(int i = f->inicio; i<=f->fim; i++){
+               Nodo n = f->fila[i];
+               start(n.x, n.y);
+          }
      }
-     // printf("\n");
-
+     else{
+          for(int i = f->inicio; i<f->tam; i++){
+               Nodo n = f->fila[i];
+               start(n.x, n.y);
+          }
+          for(int i = 0; i<=f->fim; i++){
+               Nodo n = f->fila[i];
+               start(n.x, n.y);
+          }
+     }
 }
 
 
@@ -132,12 +150,12 @@ ISR(TIMER1_COMPA_vect){
      if(30 + y > 51) y = 21;
      if(23 + y < 0)  y = -23;
      int bateu = insertTest(&corpo, x, y);
-     if(bateu == 0){
+     if(bateu == 1){
           nokia_lcd_clear();
           terminou = 1;
           return;
      }
-     if(bateu == 1) removeNodo(&corpo);
+     if(bateu == 0) removeNodo(&corpo);
      else{
           frutaX = rand() % 20;
           if(frutaX % 2 == 1)frutaX++;
@@ -155,7 +173,10 @@ ISR(TIMER1_COMPA_vect){
 
 
 int main(void){
-     corpo.head = corpo.tail = NULL;
+     corpo.fim = -1;
+     corpo.tam = 100;
+     corpo.inicio = corpo.qnt = 0;
+     corpo.fim = -1;
      insert(&corpo, 27, 24);
      insert(&corpo, 26, 26);
      // insert(&corpo, 28, 25);
@@ -164,7 +185,6 @@ int main(void){
      // insert(&corpo, 23, 29);
      // insert(&corpo, 22, 30);
      // insert(&corpo, 21, 31);
-     total = 2;
      cli();
 
      //! Timer
@@ -217,21 +237,16 @@ int main(void){
                }
           } 
           if (PINB & (1 << PB7)){
-               for(int i = 0; i < 8; i++) removeNodo(&corpo);
-               corpo.head = corpo.tail = NULL;
+               for(int i = 0; i < corpo.qnt; i++) removeNodo(&corpo);
+               corpo.fim = -1;
+               corpo.tam = 100;
+               corpo.inicio = corpo.qnt = 0;
+               corpo.fim = -1;
                vy = 2;
                vx = 0;
                x = 0;
                y = 0;
                insert(&corpo, 0, 0);
-               // insert(&corpo, 1, 0);
-               // insert(&corpo, 2, 0);
-               total = 1;
-               // insert(&corpo, 25, 27);
-               // insert(&corpo, 24, 28);
-               // insert(&corpo, 23, 29);
-               // insert(&corpo, 22, 30);
-               // insert(&corpo, 21, 31);  
                terminou = 0;
           } 
 }
