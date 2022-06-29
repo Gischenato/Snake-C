@@ -44,12 +44,15 @@ Nodo newNodo(int x, int y){
 
 short frutaX = 8;
 short frutaY = 12;
-short vx = 2;
+short vx = 0;
 short vy = 0;
 short x = 20;
 short y = 20;
 short terminou = 0;
 short total = 0;
+short jogando = 0;
+short moveu = 0;
+long seed = 0;
 
 Fila corpo;
 
@@ -60,6 +63,7 @@ void start(int x, int y){
      nokia_lcd_set_pixel(42+x, 24+y, 1);
 
 }
+
 
 void desenhaBorda(){
      for(int i = 0; i < 83; i++){
@@ -72,6 +76,16 @@ void desenhaBorda(){
      }
 }
 
+void menu(){
+     nokia_lcd_clear();
+     desenhaBorda();
+     nokia_lcd_set_cursor(14, 2);
+     nokia_lcd_write_string("Magic",2);
+     nokia_lcd_set_cursor(14, 18);
+     nokia_lcd_write_string("Snake",2);
+     nokia_lcd_set_cursor(12, 38);
+     nokia_lcd_write_string("S to start",1);
+}
 
 
 void insert(Fila *f, int x, int y){
@@ -138,37 +152,35 @@ void printa(Fila *f){
 
 
 ISR(TIMER1_COMPA_vect){
-     // srand(2000);
-     nokia_lcd_clear();
-     desenhaBorda();
-     // start(frutaX, frutaY);
-     if(terminou) return;
-     x += vx;
-     y += vy;
-     if(43 + x > 82) x = 39;
-     if(41 + x < 0)  x = -41;
-     if(30 + y > 51) y = 21;
-     if(23 + y < 0)  y = -23;
-     int bateu = insertTest(&corpo, x, y);
-     if(bateu == 1){
+     if(jogando){
+          moveu = 1;
+          srand(seed);
           nokia_lcd_clear();
-          terminou = 1;
-          return;
+          desenhaBorda();
+          if(terminou) return;
+          x += vx;
+          y += vy;
+          if(43 + x > 82) x = 39;
+          if(41 + x < 0)  x = -41;
+          if(30 + y > 51) y = 21;
+          if(23 + y < 0)  y = -23;
+          int bateu = insertTest(&corpo, x, y);
+          if(bateu == 1){
+               nokia_lcd_clear();
+               terminou = 1;
+               return;
+          }
+          if(bateu == 0) removeNodo(&corpo);
+          else{
+               frutaX = (rand() % 42) - 21;
+               if(frutaX % 2 == 1 || frutaX % 2 == -1)frutaX++;
+               frutaY = (rand() % 40) - 21;
+               if(frutaY % 2 == 1 || frutaY % 2 == -1)frutaY++;
+          }
+          printa(&corpo);
+          start(frutaX, frutaY);
+          nokia_lcd_render();
      }
-     if(bateu == 0) removeNodo(&corpo);
-     else{
-          frutaX = rand() % 20;
-          if(frutaX % 2 == 1)frutaX++;
-          frutaY = rand() % 20;
-          if(frutaY % 2 == 1)frutaY++;
-     }
-     printa(&corpo);
-     start(frutaX, frutaY);
-     // printa(&macas);
-     // start(x,y);
-     //nokia_lcd_set_pixel(67, 10, 1);
-     nokia_lcd_render();
-
 }
 
 
@@ -177,14 +189,8 @@ int main(void){
      corpo.tam = 100;
      corpo.inicio = corpo.qnt = 0;
      corpo.fim = -1;
-     insert(&corpo, 27, 24);
-     insert(&corpo, 26, 26);
-     // insert(&corpo, 28, 25);
-     // insert(&corpo, 25, 27);
-     // insert(&corpo, 24, 28);
-     // insert(&corpo, 23, 29);
-     // insert(&corpo, 22, 30);
-     // insert(&corpo, 21, 31);
+     x = y = 0;
+     insert(&corpo, 0, 0);
      cli();
 
      //! Timer
@@ -197,7 +203,6 @@ int main(void){
      TIMSK1 |= (1 << OCIE1A);
 
      //? Botoes
-
      DDRB &= ~((1 << PB0) | (1 << PB7));
      DDRD &= ~((1 << PD7) | (1 << PD6) | (1 << PD5));
 
@@ -207,47 +212,62 @@ int main(void){
      sei();
 
      nokia_lcd_init();
-     nokia_lcd_clear();
+     menu();
+     nokia_lcd_render();
      // nokia_lcd_custom(1, snake);
-
      for (;;){
-          //start(frutaX, frutaY);
-          if (PINB & (1 << PB0)){
-               if(vy != -2){
-                    vx = 0;
-                    vy = 2;
+          seed++;
+          if(seed > 1000000000) seed = 0;
+          if(jogando){
+               if(moveu == 1){
+                    if (PINB & (1 << PB0)){
+                         if(vy != -2){
+                              vx = 0;
+                              vy = 2;
+                              moveu = 0;
+                         }
+                    }
+                    if (PIND & (1 << PD6)){
+                         if(vx != 2){
+                              vy = 0;
+                              vx = -2;
+                              moveu = 0;
+                         }
+                    }
+                    if (PIND & (1 << PD7)){
+                         if(vx != -2){
+                              vy = 0;
+                              vx = 2;
+                              moveu = 0;
+                         }    
+                    }
+                    if (PIND & (1 << PD5)){
+                         if(vy != 2){
+                              vx = 0;
+                              vy = -2;
+                              moveu = 0;
+                         }
+                    } 
+                    if (PINB & (1 << PB7)){
+                         for(int i = 0; i < corpo.qnt; i++) removeNodo(&corpo);
+                         corpo.fim = -1;
+                         corpo.tam = 100;
+                         corpo.inicio = corpo.qnt = 0;
+                         corpo.fim = -1;
+                         vy = 2;
+                         vx = 0;
+                         x = 0;
+                         y = 0;
+                         insert(&corpo, 0, 0);
+                         terminou = 0;
+                    } 
                }
-          }
-          if (PIND & (1 << PD6)){
-               if(vx != 2){
-                    vy = 0;
-                    vx = -2;
-               }
-          }
-          if (PIND & (1 << PD7)){
-               if(vx != -2){
-                    vy = 0;
+          } else {
+               vx = vy = 0;
+               if (PINB & (1 << PB0)){
+                    jogando = 1;
                     vx = 2;
-               }    
-          }
-          if (PIND & (1 << PD5)){
-               if(vy != 2){
-                    vx = 0;
-                    vy = -2;
                }
-          } 
-          if (PINB & (1 << PB7)){
-               for(int i = 0; i < corpo.qnt; i++) removeNodo(&corpo);
-               corpo.fim = -1;
-               corpo.tam = 100;
-               corpo.inicio = corpo.qnt = 0;
-               corpo.fim = -1;
-               vy = 2;
-               vx = 0;
-               x = 0;
-               y = 0;
-               insert(&corpo, 0, 0);
-               terminou = 0;
-          } 
-}
+          }
+     }
 }
